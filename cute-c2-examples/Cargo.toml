@@ -1,0 +1,12 @@
+[package]
+name = "cute-c2-examples"
+version = "0.1.0"
+authors = ["Ross <yeahross@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+crow = "0.6"
+
+[dependencies.cute-c2]
+path = "../cute-c2"
+version = "0.1.0"

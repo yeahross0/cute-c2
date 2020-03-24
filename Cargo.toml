@@ -1,2 +1,2 @@
 [workspace]
-members = ["cute-c2", "cute-c2-sys"]
+members = ["cute-c2", "cute-c2-sys", "tests", "cute-c2-examples"]
