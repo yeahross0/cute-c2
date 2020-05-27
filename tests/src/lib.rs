@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use cute_c2 as c2;
-    use cute_c2::detection::*;
+    use cute_c2::{self as c2, prelude::*};
 
     fn circle() -> c2::Circle {
         c2::Circle::new(c2::Vec2::new(-1.0, 0.0), 2.0)

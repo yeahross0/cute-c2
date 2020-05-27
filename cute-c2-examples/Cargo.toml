@@ -5,7 +5,7 @@ authors = ["Ross <yeahross@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
-crow = "0.6"
+crow = "0.7.1"
 
 [dependencies.cute-c2]
 path = "../cute-c2"

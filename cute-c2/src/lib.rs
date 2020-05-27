@@ -1,8 +1,7 @@
 //! # Getting started
 //!
 //! ```rust,no_run
-//! use cute_c2 as c2;
-//! use cute_c2::detection::*;
+//! use cute_c2::{self as c2, prelude::*};
 //!
 //! fn main() {
 //!     let circle = c2::Circle::new(c2::Vec2::new(0.0, 0.0), 15.0);
@@ -85,7 +84,7 @@ pub struct ToiRunner<'a, ShapeA, ShapeB> {
     iterations: Option<&'a mut i32>,
 }
 
-pub mod detection {
+pub mod prelude {
     use super::*;
 
     pub trait C2V {
@@ -223,11 +222,11 @@ pub mod detection {
     }
 
     pub trait C2Manifold {
-        fn points_to_other(&self) -> Vec2;
+        fn normal(&self) -> Vec2;
     }
 
     impl C2Manifold for Manifold {
-        fn points_to_other(&self) -> Vec2 {
+        fn normal(&self) -> Vec2 {
             self.n
         }
     }

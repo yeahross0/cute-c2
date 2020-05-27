@@ -8,8 +8,8 @@ use crow::{
     Context,
 };
 
-use cute_c2 as c2;
-use cute_c2::detection::*;
+use cute_c2::{self as c2, prelude::*};
+
 
 fn main() -> Result<(), crow::Error> {
     let event_loop = EventLoop::new();
