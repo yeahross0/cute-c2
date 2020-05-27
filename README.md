@@ -1,8 +1,5 @@
 # cute-c2
-Rust wrapper for the cute-headers 2D collision library. See the original [cute_c2 library](https://github.com/RandyGaul/cute_headers/blob/master/cute_c2.h) in the cute headers repository by Randy Gaul. This rust wrapper supports collision detection between Circles, AABBs, Capsules and up to 8-sided convex Polygons.
-
-
-There is an example program in cute-c2-examples.
+Rust wrapper for the cute-headers 2D collision library. Check out the original [cute_c2 library](https://github.com/RandyGaul/cute_headers/blob/master/cute_c2.h) in the cute headers repository by Randy Gaul. This rust wrapper supports collision detection between Circles, AABBs, Capsules and up to 8-sided convex Polygons. There is an example program in cute-c2-examples.
 
 API example:
 ```rust
