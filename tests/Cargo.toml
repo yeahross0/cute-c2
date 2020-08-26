@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Ross <yeahross@protonmail.com>"]
 edition = "2018"
 
-[dependencies.cute-c2]
+[dependencies.c2]
 path = "../cute-c2"
 version = "0.1.0"

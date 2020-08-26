@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 crow = "0.7.1"
 
-[dependencies.cute-c2]
+[dependencies.c2]
 path = "../cute-c2"
 version = "0.1.0"

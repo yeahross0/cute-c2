@@ -1,36 +1,34 @@
 //! # Getting started
 //!
-//! ```rust,no_run
-//! use cute_c2::{self as c2, prelude::*};
+//! ```rust
+//! use c2::{prelude::*, AABB, Circle, Capsule, Poly, Transformation, Rotation};
+//! use std::f32::consts::PI;
 //!
 //! fn main() {
-//!     let circle = c2::Circle::new(c2::Vec2::new(0.0, 0.0), 15.0);
-//!     let aabb = c2::AABB {
-//!         min: c2::Vec2::new(10.0, 5.0),
-//!         max: c2::Vec2::new(20.0, 30.0),
-//!     };
+//!     let circle = Circle::new([0.0, 0.0], 15.0);
+//!     let aabb = AABB::new([10.0, 5.0], [20.0, 30.0]);
 //!
-//!     circle.collides_with(&aabb);
-//!     // returns true
+//!     let collided = circle.collides_with(&aabb);
+//!     assert!(collided);
 //!
-//!     let capsule = c2::Capsule::new(c2::Vec2::new(5.0, 5.0), c2::Vec2::new(15.0, 10.0), 1.0);
+//!     let capsule = Capsule::new([5.0, 5.0], [15.0, 10.0], 1.0);
 //!
-//!     let poly = c2::Poly::from_slice(&[
-//!         c2::Vec2::new(-1.0, -3.0),
-//!         c2::Vec2::new(1.0, -3.0),
-//!         c2::Vec2::new(1.0, 0.0),
-//!         c2::Vec2::new(0.0, 1.0),
-//!         c2::Vec2::new(-1.0, 0.0),
+//!     let poly = Poly::from_slice(&[
+//!         [-1.0, -3.0],
+//!         [1.0, -3.0],
+//!         [1.0, 0.0],
+//!         [0.0, 1.0],
+//!         [-1.0, 0.0],
 //!     ]);
 //!
-//!     capsule.collides_with(&poly);
-//!     // returns false
+//!     let collided = capsule.collides_with(&poly);
+//!     assert!(!collided);
 //!
 //!     let transformation =
-//!         c2::Transformation::new(c2::Vec2::new(5.0, 4.0), std::f32::consts::PI / 2.0);
+//!         Transformation::new([5.0, 4.0], Rotation::radians(PI / 2.0));
 //!
-//!     circle.collides_with(&(poly, transformation));
-//!     // returns true
+//!     let collided = circle.collides_with(&(poly, transformation));
+//!     assert!(collided);
 //! }
 //! ```
 
@@ -39,18 +37,267 @@ use std::os::raw::c_void;
 
 const MAX_POLYGON_VERTS: usize = ffi::C2_MAX_POLYGON_VERTS as usize;
 
-pub type Vec2 = ffi::c2v;
-pub type Rotation = ffi::c2r;
-pub type Circle = ffi::c2Circle;
-pub type AABB = ffi::c2AABB;
-pub type Capsule = ffi::c2Capsule;
-pub type Poly = ffi::c2Poly;
-pub type Transformation = ffi::c2x;
-pub type Ray = ffi::c2Ray;
-pub type RayCast = ffi::c2Raycast;
-pub type GjkCache = ffi::c2GJKCache;
-pub type Manifold = ffi::c2Manifold;
+/// A 2d vector
+#[derive(Debug, Copy, Clone)]
+pub struct Vec2(ffi::c2v);
 
+impl Vec2 {
+    /// Creates a new vector
+    pub fn new(x: f32, y: f32) -> Vec2 {
+        Vec2(ffi::c2v { x, y })
+    }
+
+    /// The x coordinate
+    pub fn x(self) -> f32 {
+        self.0.x
+    }
+
+    /// Set the x coordinate
+    pub fn set_x(&mut self, x: f32) {
+        self.0.x = x;
+    }
+
+    /// The y coordinate
+    pub fn y(self) -> f32 {
+        self.0.y
+    }
+
+    /// Set the y coordinate
+    pub fn set_y(&mut self, y: f32) {
+        self.0.y = y;
+    }
+}
+
+impl From<[f32; 2]> for Vec2 {
+    fn from(v: [f32; 2]) -> Vec2 {
+        Vec2::new(v[0], v[1])
+    }
+}
+
+/// Rotation, an angle
+#[derive(Debug, Copy, Clone)]
+pub struct Rotation(ffi::c2r);
+
+impl Rotation {
+    /// No rotation
+    pub fn zero() -> Self {
+        Rotation::radians(0.0)
+    }
+
+    // Rotation in radians
+    pub fn radians(radians: f32) -> Rotation {
+        Rotation(ffi::c2r {
+            c: radians.cos(),
+            s: radians.sin(),
+        })
+    }
+
+    /// Rotation in degrees
+    pub fn degrees(degrees: f32) -> Rotation {
+        Rotation::radians(degrees.to_radians())
+    }
+
+    /// cos(angle)
+    pub fn cos(self) -> f32 {
+        self.0.c
+    }
+
+    /// sin(angle)
+    pub fn sin(self) -> f32 {
+        self.0.s
+    }
+}
+
+/// A circle with a point and a radius
+#[derive(Debug, Copy, Clone)]
+pub struct Circle(ffi::c2Circle);
+
+impl Circle {
+    /// Creates a circle from a position and a radius
+    pub fn new<V: Into<Vec2>>(position: V, radius: f32) -> Circle {
+        Circle(ffi::c2Circle {
+            p: position.into().0,
+            r: radius,
+        })
+    }
+}
+
+/// Rectangle with a min vector and a max vector
+#[derive(Debug, Copy, Clone)]
+pub struct AABB(ffi::c2AABB);
+
+impl AABB {
+    /// Creates a new AABB rectangle
+    pub fn new<V: Into<Vec2>>(min: V, max: V) -> AABB {
+        AABB(ffi::c2AABB {
+            min: min.into().0,
+            max: max.into().0,
+        })
+    }
+
+    /// The minimum position
+    pub fn min(self) -> Vec2 {
+        Vec2(self.0.min)
+    }
+
+    /// The maximum position
+    pub fn max(self) -> Vec2 {
+        Vec2(self.0.max)
+    }
+}
+
+/// A capsule with a line segment and a radius
+#[derive(Debug, Copy, Clone)]
+pub struct Capsule(ffi::c2Capsule);
+
+impl Capsule {
+    /// Creates a capsule from a start position, an end position and a radius
+    pub fn new<V: Into<Vec2>>(start: V, end: V, radius: f32) -> Capsule {
+        Capsule(ffi::c2Capsule {
+            a: start.into().0,
+            b: end.into().0,
+            r: radius,
+        })
+    }
+}
+
+/// A polygon with up to 8 sides
+#[derive(Debug, Copy, Clone)]
+pub struct Poly(ffi::c2Poly);
+
+impl Poly {
+    /// Creates a polygon from a slice of vectors
+    pub fn from_slice<V: Copy + Into<Vec2>>(verts: &[V]) -> Poly {
+        let mut poly = ffi::c2Poly {
+            count: verts.len() as i32,
+            verts: [ffi::c2v { x: 0.0, y: 0.0 }; MAX_POLYGON_VERTS],
+            norms: [ffi::c2v { x: 0.0, y: 0.0 }; MAX_POLYGON_VERTS],
+        };
+        for i in 0..verts.len().min(MAX_POLYGON_VERTS) {
+            poly.verts[i] = verts[i].into().0;
+        }
+        unsafe {
+            ffi::c2MakePoly(&mut poly);
+        }
+        Poly(poly)
+    }
+
+    /// Creates a polygon from an array
+    pub fn from_array<V: Copy + Into<Vec2>>(count: usize, verts: [V; MAX_POLYGON_VERTS]) -> Poly {
+        Poly::from_slice(&verts[..count])
+    }
+
+    /// The number of sides
+    pub fn count(self) -> usize {
+        self.0.count as usize
+    }
+
+    /// Gets the point of the polygon at the index
+    pub fn get_vert(self, index: usize) -> Vec2 {
+        Vec2(self.0.verts[index])
+    }
+}
+
+/// For transforming the position and rotation of polygons
+#[derive(Debug, Copy, Clone)]
+pub struct Transformation(ffi::c2x);
+
+impl Transformation {
+    /// Creates a new transformation with a position and an angle
+    pub fn new<V: Into<Vec2>>(position: V, rotation: Rotation) -> Transformation {
+        Transformation(ffi::c2x {
+            p: position.into().0,
+            r: rotation.0,
+        })
+    }
+
+    /// Gets the position of the tranformation
+    pub fn position(self) -> Vec2 {
+        Vec2(self.0.p)
+    }
+
+    pub fn set_position(&mut self, position: Vec2) {
+        self.0.p = position.0;
+    }
+
+    /// Gets the rotation of the transformation
+    pub fn rotation(self) -> Rotation {
+        Rotation(self.0.r)
+    }
+
+    pub fn set_rotation(&mut self, rotation: Rotation) {
+        self.0.r = rotation.0;
+    }
+}
+
+/// A Ray struct for casting a ray
+pub struct Ray(ffi::c2Ray);
+
+impl Ray {
+    /// Creates a Ray with a position and a ray (a vector containing the direction and magnitude)
+    pub fn new<V: Into<Vec2>>(position: V, ray: V) -> Ray {
+        let ray = ray.into().0;
+        let distance = (ray.x * ray.x + ray.y * ray.y).sqrt();
+        let direction = Vec2::new(ray.x / distance, ray.y / distance);
+        Ray(ffi::c2Ray {
+            p: position.into().0,
+            d: direction.0,
+            t: distance,
+        })
+    }
+}
+
+/// The result of the ray casting operations
+#[derive(Debug, Copy, Clone)]
+pub struct RayCast(ffi::c2Raycast);
+
+impl RayCast {
+    pub fn time_of_impact(self) -> f32 {
+        self.0.t
+    }
+
+    pub fn position_of_impact(self, ray: Ray) -> Vec2 {
+        Vec2::new(
+            ray.0.p.x + ray.0.d.x * self.0.t,
+            ray.0.p.y + ray.0.d.y * self.0.t,
+        )
+    }
+
+    /// The normal of the surface at impact (unit length)
+    pub fn normal(self) -> Vec2 {
+        Vec2(self.0.n)
+    }
+}
+
+pub type GjkCache = ffi::c2GJKCache;
+
+/// Contains the data necessary for collision resolution
+#[derive(Debug, Copy, Clone)]
+pub struct Manifold(ffi::c2Manifold);
+
+impl Manifold {
+    pub fn count(self) -> i32 {
+        self.0.count
+    }
+
+    pub fn depths(self) -> [f32; 2] {
+        self.0.depths
+    }
+
+    pub fn contact_points(self) -> [Vec2; 2] {
+        [
+            Vec2(self.0.contact_points[0]),
+            Vec2(self.0.contact_points[1]),
+        ]
+    }
+
+    /// Points from the first shape to the second
+    pub fn normal(self) -> Vec2 {
+        Vec2(self.0.n)
+    }
+}
+
+/// The type of the shape
 #[repr(u32)]
 #[derive(Debug, Copy, Clone)]
 pub enum Type {
@@ -61,12 +308,14 @@ pub enum Type {
     Poly = ffi::C2_TYPE_C2_TYPE_POLY,
 }
 
+/// The result of the GJK function
 #[derive(Debug, Copy, Clone)]
 pub struct GjkResponse {
     pub distance: f32,
     pub closest_points: (Vec2, Vec2),
 }
 
+/// A builder for running the GJK algorithm
 pub struct GjkRunner<'a, ShapeA, ShapeB> {
     a: &'a ShapeA,
     b: &'a ShapeB,
@@ -75,6 +324,7 @@ pub struct GjkRunner<'a, ShapeA, ShapeB> {
     iterations: Option<&'a mut i32>,
 }
 
+/// A builder for finding the time of impact for two shapes
 pub struct ToiRunner<'a, ShapeA, ShapeB> {
     a: &'a ShapeA,
     b: &'a ShapeB,
@@ -87,147 +337,26 @@ pub struct ToiRunner<'a, ShapeA, ShapeB> {
 pub mod prelude {
     use super::*;
 
-    pub trait C2V {
-        fn new(x: f32, y: f32) -> Self;
-    }
-    impl C2V for Vec2 {
-        fn new(x: f32, y: f32) -> Vec2 {
-            Vec2 { x, y }
-        }
-    }
-
-    pub trait C2R {
-        fn new(radians: f32) -> Self;
-    }
-    impl C2R for Rotation {
-        fn new(radians: f32) -> Self {
-            Rotation {
-                c: radians.cos(),
-                s: radians.sin(),
-            }
-        }
-    }
-
-    pub trait C2Circle {
-        fn new(position: Vec2, radius: f32) -> Self;
-    }
-    impl C2Circle for Circle {
-        fn new(position: Vec2, radius: f32) -> Circle {
-            Circle {
-                p: position,
-                r: radius,
-            }
-        }
-    }
-
-    pub trait C2AABB {
-        fn new(min: Vec2, max: Vec2) -> Self;
-    }
-    impl C2AABB for AABB {
-        fn new(min: Vec2, max: Vec2) -> AABB {
-            AABB { min, max }
-        }
-    }
-
-    pub trait C2Capsule {
-        fn new(a: Vec2, b: Vec2, radius: f32) -> Self;
-    }
-    impl C2Capsule for Capsule {
-        fn new(a: Vec2, b: Vec2, radius: f32) -> Capsule {
-            Capsule { a, b, r: radius }
-        }
-    }
-
-    pub trait C2Poly {
-        fn from_slice(verts: &[Vec2]) -> Self;
-        fn from_array(count: usize, verts: [Vec2; 8]) -> Self;
-    }
-    impl C2Poly for Poly {
-        fn from_slice(verts: &[Vec2]) -> Poly {
-            let mut poly = Poly {
-                count: verts.len() as i32,
-                verts: [Vec2::new(0.0, 0.0); MAX_POLYGON_VERTS],
-                norms: [Vec2::new(0.0, 0.0); MAX_POLYGON_VERTS],
-            };
-            for i in 0..verts.len().min(MAX_POLYGON_VERTS) {
-                poly.verts[i] = verts[i];
-            }
+    impl Ray {
+        pub fn cast<T: Shape + AdvancedShape>(self, shape: T) -> Option<RayCast> {
             unsafe {
-                ffi::c2MakePoly(&mut poly);
+                let mut raycast = RayCast(ffi::c2Raycast {
+                    t: 0.0,
+                    n: Vec2::new(0.0, 0.0).0,
+                });
+                let hit = ffi::c2CastRay(
+                    self.0,
+                    shape.shape(),
+                    shape.transformation(),
+                    T::shape_type() as u32,
+                    &mut raycast.0,
+                );
+                if hit != 0 {
+                    Some(raycast)
+                } else {
+                    None
+                }
             }
-            poly
-        }
-        fn from_array(count: usize, verts: [Vec2; 8]) -> Poly {
-            let mut poly = Poly {
-                count: count.max(8) as i32,
-                verts,
-                norms: [Vec2::new(0.0, 0.0); MAX_POLYGON_VERTS],
-            };
-            unsafe {
-                ffi::c2MakePoly(&mut poly);
-            }
-            poly
-        }
-    }
-
-    pub trait C2X {
-        fn new(position: Vec2, rotation: f32) -> Self;
-    }
-    impl C2X for Transformation {
-        fn new(position: Vec2, rotation: f32) -> Transformation {
-            Transformation {
-                p: position,
-                r: Rotation::new(rotation),
-            }
-        }
-    }
-
-    pub trait C2Ray {
-        fn new(position: Vec2, ray: Vec2) -> Self;
-    }
-
-    impl C2Ray for Ray {
-        fn new(position: Vec2, ray: Vec2) -> Ray {
-            let distance = (ray.x * ray.x + ray.y * ray.y).sqrt();
-            let direction = Vec2::new(ray.x / distance, ray.y / distance);
-            Ray {
-                p: position,
-                d: direction,
-                t: distance,
-            }
-        }
-    }
-
-    pub trait C2RayCast {
-        fn time_of_impact(self) -> f32;
-        fn position_of_impact(self, ray: Ray) -> Vec2;
-        fn normal(self) -> Vec2;
-    }
-
-    impl C2RayCast for RayCast {
-        fn time_of_impact(self) -> f32 {
-            self.t
-        }
-
-        fn position_of_impact(self, ray: Ray) -> Vec2 {
-            Vec2 {
-                x: ray.p.x + ray.d.x * self.t,
-                y: ray.p.y + ray.d.y * self.t,
-            }
-        }
-
-        fn normal(self) -> Vec2 {
-            self.n
-        }
-    }
-
-    pub trait C2Manifold {
-        fn normal(&self) -> Vec2;
-    }
-
-    impl C2Manifold for Manifold {
-        fn normal(&self) -> Vec2 {
-            self.n
         }
     }
 
@@ -238,12 +367,13 @@ pub mod prelude {
             self as *const _ as *const c_void
         }
 
-        fn transformation(&self) -> *const Transformation {
+        fn transformation(&self) -> *const ffi::c2x {
             std::ptr::null()
         }
     }
 
     pub trait BasicShape: Shape {
+        /// Returns true if the two shapes are colliding, false otherwise
         fn collides_with<T: Shape>(&self, other: &T) -> bool {
             unsafe {
                 ffi::c2Collided(
@@ -257,13 +387,14 @@ pub mod prelude {
             }
         }
 
+        /// Returns the Manifold struct for collision resolution
         fn manifold<T: Shape>(&self, other: &T) -> Manifold {
-            let mut manifold = Manifold {
+            let mut manifold = Manifold(ffi::c2Manifold {
                 count: 0,
                 depths: [0.0, 0.0],
                 contact_points: [ffi::c2v { x: 0.0, y: 0.0 }, ffi::c2v { x: 0.0, y: 0.0 }],
                 n: ffi::c2v { x: 0.0, y: 0.0 },
-            };
+            });
             unsafe {
                 ffi::c2Collide(
                     self.shape(),
@@ -272,7 +403,7 @@ pub mod prelude {
                     other.shape(),
                     other.transformation(),
                     T::shape_type() as u32,
-                    &mut manifold,
+                    &mut manifold.0,
                 );
             }
             manifold
@@ -309,6 +440,7 @@ pub mod prelude {
             self
         }
 
+        /// Finds the closest pair between two shapes
         pub fn run(self) -> GjkResponse {
             let mut response = GjkResponse {
                 distance: 0.0,
@@ -330,8 +462,8 @@ pub mod prelude {
                     self.b.shape(),
                     ShapeB::shape_type() as u32,
                     self.b.transformation(),
-                    &mut response.closest_points.0,
-                    &mut response.closest_points.1,
+                    &mut (response.closest_points.0).0,
+                    &mut (response.closest_points.1).0,
                     self.use_radius as i32,
                     iterations_ptr,
                     cache_ptr,
@@ -388,11 +520,11 @@ pub mod prelude {
                     self.a.shape(),
                     ShapeA::shape_type() as u32,
                     self.a.transformation(),
-                    self.a_velocity,
+                    self.a_velocity.0,
                     self.b.shape(),
                     ShapeB::shape_type() as u32,
                     self.b.transformation(),
-                    self.b_velocity,
+                    self.b_velocity.0,
                     self.use_radius as i32,
                     iterations_ptr,
                 )
@@ -464,8 +596,8 @@ pub mod prelude {
             &self.0 as *const _ as *const c_void
         }
 
-        fn transformation(&self) -> *const Transformation {
-            &self.1 as *const _ as *const Transformation
+        fn transformation(&self) -> *const ffi::c2x {
+            &self.1 as *const _ as *const ffi::c2x
         }
     }
 
@@ -480,8 +612,8 @@ pub mod prelude {
             &self.0 as *const _ as *const c_void
         }
 
-        fn transformation(&self) -> *const Transformation {
-            &self.1 as *const _ as *const Transformation
+        fn transformation(&self) -> *const ffi::c2x {
+            &self.1 as *const _ as *const ffi::c2x
         }
     }
 
@@ -496,8 +628,8 @@ pub mod prelude {
             &self.0 as *const _ as *const c_void
         }
 
-        fn transformation(&self) -> *const Transformation {
-            &self.1 as *const _ as *const Transformation
+        fn transformation(&self) -> *const ffi::c2x {
+            &self.1 as *const _ as *const ffi::c2x
         }
     }
 
@@ -512,8 +644,8 @@ pub mod prelude {
             &self.0 as *const _ as *const c_void
         }
 
-        fn transformation(&self) -> *const Transformation {
-            &self.1 as *const _ as *const Transformation
+        fn transformation(&self) -> *const ffi::c2x {
+            &self.1 as *const _ as *const ffi::c2x
         }
     }
 

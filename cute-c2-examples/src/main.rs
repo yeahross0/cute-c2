@@ -8,8 +8,7 @@ use crow::{
     Context,
 };
 
-use cute_c2::{self as c2, prelude::*};
-
+use c2::{prelude::*, Poly, Rotation, Transformation, Vec2, AABB};
 
 fn main() -> Result<(), crow::Error> {
     let event_loop = EventLoop::new();
@@ -18,20 +17,20 @@ fn main() -> Result<(), crow::Error> {
         &event_loop,
     )?;
 
-    let aabb = c2::AABB::new(c2::Vec2::new(250.0, 250.0), c2::Vec2::new(550.0, 350.0));
+    let aabb = AABB::new([250.0, 250.0], [550.0, 350.0]);
 
-    let poly = c2::Poly::from_slice(&[
-        c2::Vec2::new(0.0, -100.0),
-        c2::Vec2::new(100.0, 0.0),
-        c2::Vec2::new(50.0, 100.0),
-        c2::Vec2::new(-50.0, 100.0),
-        c2::Vec2::new(-100.0, 0.0),
+    let poly = Poly::from_slice(&[
+        [0.0, -100.0],
+        [100.0, 0.0],
+        [50.0, 100.0],
+        [-50.0, 100.0],
+        [-100.0, 0.0],
     ]);
 
-    let mut transformation = c2::Transformation::new(c2::Vec2::new(400.0, 500.0), 0.0);
+    let mut transformation = Transformation::new([400.0, 500.0], Rotation::zero());
     let mut rotation = 0.0;
 
-    let mut velocity = (0.2, 0.2);
+    let mut velocity = Vec2::new(0.2, 0.2);
 
     event_loop.run(
         move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| match event {
@@ -42,14 +41,16 @@ fn main() -> Result<(), crow::Error> {
             Event::MainEventsCleared => ctx.window().request_redraw(),
             Event::RedrawRequested(_) => {
                 rotation += 0.001;
-                transformation.r = c2::Rotation::new(rotation);
-                transformation.p.x += velocity.0;
-                transformation.p.y += velocity.1;
-                if transformation.p.x < 100.0 || transformation.p.x > 700.0 {
-                    velocity.0 *= -1.0;
+                transformation.set_position(Vec2::new(
+                    transformation.position().x() + velocity.x(),
+                    transformation.position().y() + velocity.y(),
+                ));
+                transformation.set_rotation(Rotation::radians(rotation));
+                if transformation.position().x() < 100.0 || transformation.position().x() > 700.0 {
+                    velocity.set_x(-velocity.x());
                 }
-                if transformation.p.y < 100.0 || transformation.p.y > 500.0 {
-                    velocity.1 *= -1.0;
+                if transformation.position().y() < 100.0 || transformation.position().y() > 500.0 {
+                    velocity.set_y(-velocity.y());
                 }
                 let mut surface = ctx.surface();
                 ctx.clear_color(&mut surface, (0.4, 0.4, 0.8, 1.0));
@@ -60,26 +61,26 @@ fn main() -> Result<(), crow::Error> {
                 };
                 ctx.debug_rectangle(
                     &mut surface,
-                    (aabb.min.x as i32, aabb.min.y as i32),
-                    (aabb.max.x as i32, aabb.max.y as i32),
+                    (aabb.min().x() as i32, aabb.min().y() as i32),
+                    (aabb.max().x() as i32, aabb.max().y() as i32),
                     colour,
                 );
                 let transform = |mut vert: c2::Vec2| {
-                    let x = vert.x;
-                    let y = vert.y;
-                    let c = transformation.r.c;
-                    let s = transformation.r.s;
-                    vert.x = x * c + y * s;
-                    vert.y = x * -s + y * c;
-                    (
-                        (vert.x + transformation.p.x) as i32,
-                        (vert.y + transformation.p.y) as i32,
-                    )
+                    let x = vert.x();
+                    let y = vert.y();
+                    let c = transformation.rotation().cos();
+                    let s = transformation.rotation().sin();
+                    vert = Vec2::new(x * c + y * s, x * -s + y * c);
+                    let transformed_vert = Vec2::new(
+                        vert.x() + transformation.position().x(),
+                        vert.y() + transformation.position().y(),
+                    );
+                    (transformed_vert.x() as i32, transformed_vert.y() as i32)
                 };
-                for i in 0..(poly.count as usize) {
-                    let from = transform(poly.verts[i]);
-                    let next = (i + 1) % poly.count as usize;
-                    let to = transform(poly.verts[next]);
+                for i in 0..(poly.count()) {
+                    let from = transform(poly.get_vert(i));
+                    let next = (i + 1) % poly.count();
+                    let to = transform(poly.get_vert(next));
                     ctx.debug_line(&mut surface, from, to, colour);
                 }
                 ctx.present(surface).unwrap();
