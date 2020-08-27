@@ -30,20 +30,25 @@
 //!     let collided = circle.collides_with(&(poly, transformation));
 //!     assert!(collided);
 //!     let manifold = circle.manifold(&poly);
-//!     /* returns a struct with the following methods:
-//!     manifold.count() -> i32
-//!     manifold.depths() -> [f32; 2]
-//!     manifold.contact_points() -> [Vec2; 2]
-//!     manifold.normal() -> Vec2
+//!     /*
+//!         The manifold is used for resolving collisions and has the following methods:
+//!         manifold.count() -> i32
+//!         manifold.depths() -> [f32; 2]
+//!         manifold.contact_points() -> [Vec2; 2]
+//!         manifold.normal() -> Vec2
 //!     */
 //!
 //!     let gjk_response = poly.gjk(&circle).run();
-//!     /* returns a struct with the following methods:
-//!     gjk_response.distance() -> f32
-//!     gjk_response.closest_points() -> (Vec2, Vec2)
+//!     /*
+//!         The result of the GJK algorithm:
+//!         gjk_response.distance() -> f32
+//!         gjk_response.closest_points() -> (Vec2, Vec2)
 //!     */
 //! }
 //! ```
+//!
+//! Check out [the library](https://github.com/RandyGaul/cute_headers/blob/master/cute_c2.h) this builds on top of for additional documentation.
+//! Please note the section entitled NUMERIC ROBUSTNESS.
 
 use c2_sys as ffi;
 use std::os::raw::c_void;
