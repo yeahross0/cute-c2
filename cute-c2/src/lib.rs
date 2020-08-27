@@ -32,7 +32,7 @@
 //! }
 //! ```
 
-use cute_c2_sys as ffi;
+use c2_sys as ffi;
 use std::os::raw::c_void;
 
 const MAX_POLYGON_VERTS: usize = ffi::C2_MAX_POLYGON_VERTS as usize;

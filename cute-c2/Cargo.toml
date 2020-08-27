@@ -8,6 +8,6 @@ license = "MIT"
 repository = "https://github.com/yeahross0/cute-c2"
 readme = "../README.md"
 
-[dependencies.cute-c2-sys]
+[dependencies.c2-sys]
 path = "../cute-c2-sys"
 version = "0.1.0"
