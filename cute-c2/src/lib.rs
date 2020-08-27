@@ -29,6 +29,19 @@
 //!
 //!     let collided = circle.collides_with(&(poly, transformation));
 //!     assert!(collided);
+//!     let manifold = circle.manifold(&poly);
+//!     /* returns a struct with the following methods:
+//!     manifold.count() -> i32
+//!     manifold.depths() -> [f32; 2]
+//!     manifold.contact_points() -> [Vec2; 2]
+//!     manifold.normal() -> Vec2
+//!     */
+//!
+//!     let gjk_response = poly.gjk(&circle).run();
+//!     /* returns a struct with the following methods:
+//!     gjk_response.distance() -> f32
+//!     gjk_response.closest_points() -> (Vec2, Vec2)
+//!     */
 //! }
 //! ```
 
@@ -311,8 +324,18 @@ pub enum Type {
 /// The result of the GJK function
 #[derive(Debug, Copy, Clone)]
 pub struct GjkResponse {
-    pub distance: f32,
-    pub closest_points: (Vec2, Vec2),
+    distance: f32,
+    closest_points: (Vec2, Vec2),
+}
+
+impl GjkResponse {
+    pub fn distance(self) -> f32 {
+        self.distance
+    }
+
+    pub fn closest_points(self) -> (Vec2, Vec2) {
+        self.closest_points
+    }
 }
 
 /// A builder for running the GJK algorithm

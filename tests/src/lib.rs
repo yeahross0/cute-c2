@@ -112,7 +112,7 @@ mod tests {
         let mut iterations = 0;
         let r = poly().gjk(&other).set_iterations(&mut iterations).run();
 
-        assert!(r.distance != 0.0);
+        assert!(r.distance() != 0.0);
         assert!(iterations > 0);
     }
 }
