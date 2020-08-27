@@ -3,6 +3,10 @@ name = "c2"
 version = "0.1.0"
 authors = ["Ross <yeahross@protonmail.com>"]
 edition = "2018"
+description = "2D Collision Detection"
+license = "MIT"
+repository = "https://github.com/yeahross0/cute-c2"
+readme = "../README.md"
 
 [dependencies.cute-c2-sys]
 path = "../cute-c2-sys"
