@@ -70,7 +70,7 @@ fn main() -> Result<(), crow::Error> {
                     let y = vert.y();
                     let c = transformation.rotation().cos();
                     let s = transformation.rotation().sin();
-                    vert = Vec2::new(x * c + y * s, x * -s + y * c);
+                    vert = Vec2::new(x * c - y * s, x * s + y * c);
                     let transformed_vert = Vec2::new(
                         vert.x() + transformation.position().x(),
                         vert.y() + transformation.position().y(),
