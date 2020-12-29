@@ -3,9 +3,6 @@ name = "c2-sys"
 version = "0.1.0"
 authors = ["Ross <yeahross@protonmail.com>"]
 edition = "2018"
-description = "Bindings to the c2.h library"
+description = "Implementation of the c2.h library"
 license = "MIT"
 repository = "https://github.com/yeahross0/cute-c2"
-
-[build-dependencies]
-cc = "1.0"

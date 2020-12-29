@@ -463,42 +463,234 @@ fn bindgen_test_layout_c2Manifold() {
         )
     );
 }
-extern "C" {
-    pub fn c2CircletoCircle(A: c2Circle, B: c2Circle) -> ::std::os::raw::c_int;
+
+fn c2Sub(mut a: c2v, b: c2v) -> c2v {
+    a.x -= b.x;
+    a.y -= b.y;
+    a
 }
-extern "C" {
-    pub fn c2CircletoAABB(A: c2Circle, B: c2AABB) -> ::std::os::raw::c_int;
+
+fn c2Dot(a: c2v, b: c2v) -> f32 {
+    a.x * b.x + a.y * b.y
 }
-extern "C" {
-    pub fn c2CircletoCapsule(A: c2Circle, B: c2Capsule) -> ::std::os::raw::c_int;
+
+pub unsafe fn c2CircletoCircle(A: c2Circle, B: c2Circle) -> ::std::os::raw::c_int {
+    let c: c2v = c2Sub(B.p, A.p);
+    let d2: f32 = c2Dot(c, c);
+    let mut r2: f32 = A.r + B.r;
+    r2 = r2 * r2;
+    if d2 < r2 {
+        1
+    } else {
+        0
+    }
 }
-extern "C" {
-    pub fn c2AABBtoAABB(A: c2AABB, B: c2AABB) -> ::std::os::raw::c_int;
+
+fn c2V(x: f32, y: f32) -> c2v {
+    c2v { x, y }
 }
-extern "C" {
-    pub fn c2AABBtoCapsule(A: c2AABB, B: c2Capsule) -> ::std::os::raw::c_int;
+
+fn c2Minv(a: c2v, b: c2v) -> c2v {
+    c2V(a.x.min(b.x), a.y.min(b.y))
 }
-extern "C" {
-    pub fn c2CapsuletoCapsule(A: c2Capsule, B: c2Capsule) -> ::std::os::raw::c_int;
+fn c2Maxv(a: c2v, b: c2v) -> c2v {
+    c2V(a.x.max(b.x), a.y.max(b.y))
 }
-extern "C" {
-    pub fn c2CircletoPoly(A: c2Circle, B: *const c2Poly, bx: *const c2x) -> ::std::os::raw::c_int;
+
+fn c2Clampv(a: c2v, lo: c2v, hi: c2v) -> c2v {
+    c2Maxv(lo, c2Minv(a, hi))
 }
-extern "C" {
-    pub fn c2AABBtoPoly(A: c2AABB, B: *const c2Poly, bx: *const c2x) -> ::std::os::raw::c_int;
+
+pub unsafe fn c2CircletoAABB(A: c2Circle, B: c2AABB) -> ::std::os::raw::c_int {
+    let L: c2v = c2Clampv(A.p, B.min, B.max);
+    let ab: c2v = c2Sub(A.p, L);
+    let d2: f32 = c2Dot(ab, ab);
+    let r2: f32 = A.r * A.r;
+    if d2 < r2 {
+        1
+    } else {
+        0
+    }
 }
-extern "C" {
-    pub fn c2CapsuletoPoly(A: c2Capsule, B: *const c2Poly, bx: *const c2x)
-        -> ::std::os::raw::c_int;
+
+fn c2Mulvs(mut a: c2v, b: f32) -> c2v {
+    a.x *= b;
+    a.y *= b;
+    a
 }
-extern "C" {
-    pub fn c2PolytoPoly(
-        A: *const c2Poly,
-        ax: *const c2x,
-        B: *const c2Poly,
-        bx: *const c2x,
-    ) -> ::std::os::raw::c_int;
+
+pub unsafe fn c2CircletoCapsule(A: c2Circle, B: c2Capsule) -> ::std::os::raw::c_int {
+    let n: c2v = c2Sub(B.b, B.a);
+    let ap = c2Sub(A.p, B.a);
+    let da = c2Dot(ap, n);
+    let d2: f32;
+
+    if da < 0.0 {
+        d2 = c2Dot(ap, ap);
+    } else {
+        let db = c2Dot(c2Sub(A.p, B.b), n);
+        if db < 0.0 {
+            let e = c2Sub(ap, c2Mulvs(n, da / c2Dot(n, n)));
+            d2 = c2Dot(e, e);
+        } else {
+            let bp = c2Sub(A.p, B.b);
+            d2 = c2Dot(bp, bp);
+        }
+    }
+
+    let r = A.r + B.r;
+    if d2 < r * r {
+        1
+    } else {
+        0
+    }
 }
+
+pub unsafe fn c2AABBtoAABB(A: c2AABB, B: c2AABB) -> ::std::os::raw::c_int {
+    let d0 = B.max.x < A.min.x;
+    let d1 = A.max.x < B.min.x;
+    let d2 = B.max.y < A.min.y;
+    let d3 = A.max.y < B.min.y;
+    if !(d0 | d1 | d2 | d3) {
+        1
+    } else {
+        0
+    }
+}
+
+pub unsafe fn c2AABBtoCapsule(A: c2AABB, B: c2Capsule) -> ::std::os::raw::c_int {
+    if c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_AABB,
+        std::ptr::null(),
+        &B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CAPSULE,
+        std::ptr::null(),
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        1,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    ) != 0.0
+    {
+        return 0;
+    }
+    return 1;
+}
+
+pub unsafe fn c2CapsuletoCapsule(A: c2Capsule, B: c2Capsule) -> ::std::os::raw::c_int {
+    if c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CAPSULE,
+        std::ptr::null(),
+        &B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CAPSULE,
+        std::ptr::null(),
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        1,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    ) != 0.0
+    {
+        return 0;
+    }
+    return 1;
+}
+
+pub unsafe fn c2CircletoPoly(
+    A: c2Circle,
+    B: *const c2Poly,
+    bx: *const c2x,
+) -> ::std::os::raw::c_int {
+    if c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CIRCLE,
+        std::ptr::null(),
+        B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        bx,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        1,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    ) != 0.0
+    {
+        return 0;
+    }
+    return 1;
+}
+
+pub unsafe fn c2AABBtoPoly(A: c2AABB, B: *const c2Poly, bx: *const c2x) -> ::std::os::raw::c_int {
+    if c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_AABB,
+        std::ptr::null(),
+        B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        bx,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        1,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    ) != 0.0
+    {
+        return 0;
+    }
+    return 1;
+}
+
+pub unsafe fn c2CapsuletoPoly(
+    A: c2Capsule,
+    B: *const c2Poly,
+    bx: *const c2x,
+) -> ::std::os::raw::c_int {
+    if c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CAPSULE,
+        std::ptr::null(),
+        B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        bx,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        1,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    ) != 0.0
+    {
+        return 0;
+    }
+    return 1;
+}
+
+pub unsafe fn c2PolytoPoly(
+    A: *const c2Poly,
+    ax: *const c2x,
+    B: *const c2Poly,
+    bx: *const c2x,
+) -> ::std::os::raw::c_int {
+    if c2GJK(
+        A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        ax,
+        B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        bx,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+        1,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    ) != 0.0
+    {
+        return 0;
+    }
+    return 1;
+}
+
 extern "C" {
     pub fn c2RaytoCircle(A: c2Ray, B: c2Circle, out: *mut c2Raycast) -> ::std::os::raw::c_int;
 }
@@ -516,52 +708,704 @@ extern "C" {
         out: *mut c2Raycast,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
-    pub fn c2CircletoCircleManifold(A: c2Circle, B: c2Circle, m: *mut c2Manifold);
+pub unsafe fn c2CircletoCircleManifold(A: c2Circle, B: c2Circle, m: *mut c2Manifold) {
+    (*m).count = 0;
+    let d = c2Sub(B.p, A.p);
+    let d2 = c2Dot(d, d);
+    let r = A.r + B.r;
+    if d2 < r * r {
+        let l = d2.sqrt();
+        let n = if l != 0.0 {
+            c2Mulvs(d, 1.0 / l)
+        } else {
+            c2V(0.0, 1.0)
+        };
+        (*m).count = 1;
+        (*m).depths[0] = r - l;
+        (*m).contact_points[0] = c2Sub(B.p, c2Mulvs(n, B.r));
+        (*m).n = n;
+    }
 }
-extern "C" {
-    pub fn c2CircletoAABBManifold(A: c2Circle, B: c2AABB, m: *mut c2Manifold);
+
+fn c2Absv(a: c2v) -> c2v {
+    return c2V(a.x.abs(), a.y.abs());
 }
-extern "C" {
-    pub fn c2CircletoCapsuleManifold(A: c2Circle, B: c2Capsule, m: *mut c2Manifold);
+
+pub unsafe fn c2CircletoAABBManifold(A: c2Circle, B: c2AABB, m: *mut c2Manifold) {
+    (*m).count = 0;
+    let L = c2Clampv(A.p, B.min, B.max);
+    let ab = c2Sub(L, A.p);
+    let d2 = c2Dot(ab, ab);
+    let r2 = A.r * A.r;
+    if d2 < r2 {
+        // shallow (center of circle not inside of AABB)
+        if d2 != 0.0 {
+            let d = d2.sqrt();
+            let n = c2Norm(ab);
+            (*m).count = 1;
+            (*m).depths[0] = A.r - d;
+            (*m).contact_points[0] = c2Add(A.p, c2Mulvs(n, d));
+            (*m).n = n;
+        }
+        // deep (center of circle inside of AABB)
+        // clamp circle's center to edge of AABB, then form the manifold
+        else {
+            let mid = c2Mulvs(c2Add(B.min, B.max), 0.5);
+            let e = c2Mulvs(c2Sub(B.max, B.min), 0.5);
+            let d = c2Sub(A.p, mid);
+            let abs_d = c2Absv(d);
+
+            let x_overlap = e.x - abs_d.x;
+            let y_overlap = e.y - abs_d.y;
+
+            let depth;
+            let mut n;
+
+            if x_overlap < y_overlap {
+                depth = x_overlap;
+                n = c2V(1.0, 0.0);
+                n = c2Mulvs(n, if d.x < 0.0 { 1.0 } else { -1.0 });
+            } else {
+                depth = y_overlap;
+                n = c2V(0.0, 1.0);
+                n = c2Mulvs(n, if d.y < 0.0 { 1.0 } else { -1.0 });
+            }
+
+            (*m).count = 1;
+            (*m).depths[0] = A.r + depth;
+            (*m).contact_points[0] = c2Sub(A.p, c2Mulvs(n, depth));
+            (*m).n = n;
+        }
+    }
 }
-extern "C" {
-    pub fn c2AABBtoAABBManifold(A: c2AABB, B: c2AABB, m: *mut c2Manifold);
+
+pub unsafe fn c2CircletoCapsuleManifold(A: c2Circle, B: c2Capsule, m: *mut c2Manifold) {
+    (*m).count = 0;
+    let mut a = c2V(0.0, 0.0);
+    let mut b = c2V(0.0, 0.0);
+    let r = A.r + B.r;
+    let d = c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CIRCLE,
+        std::ptr::null_mut(),
+        &B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CAPSULE,
+        std::ptr::null_mut(),
+        &mut a,
+        &mut b,
+        0,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    );
+    if d < r {
+        let n;
+        if d == 0.0 {
+            n = c2Norm(c2Skew(c2Sub(B.b, B.a)));
+        } else {
+            n = c2Norm(c2Sub(b, a));
+        }
+
+        (*m).count = 1;
+        (*m).depths[0] = r - d;
+        (*m).contact_points[0] = c2Sub(b, c2Mulvs(n, B.r));
+        (*m).n = n;
+    }
 }
-extern "C" {
-    pub fn c2AABBtoCapsuleManifold(A: c2AABB, B: c2Capsule, m: *mut c2Manifold);
+
+pub unsafe fn c2AABBtoAABBManifold(A: c2AABB, B: c2AABB, m: *mut c2Manifold) {
+    (*m).count = 0;
+    let mid_a = c2Mulvs(c2Add(A.min, A.max), 0.5);
+    let mid_b = c2Mulvs(c2Add(B.min, B.max), 0.5);
+    let eA = c2Absv(c2Mulvs(c2Sub(A.max, A.min), 0.5));
+    let eB = c2Absv(c2Mulvs(c2Sub(B.max, B.min), 0.5));
+    let d = c2Sub(mid_b, mid_a);
+
+    // calc overlap on x and y axes
+    let dx = eA.x + eB.x - d.x.abs();
+    if dx < 0.0 {
+        return;
+    }
+    let dy = eA.y + eB.y - d.y.abs();
+    if dy < 0.0 {
+        return;
+    }
+
+    let n;
+    let depth;
+    let p;
+
+    // x axis overlap is smaller
+    if dx < dy {
+        depth = dx;
+        if d.x < 0.0 {
+            n = c2V(-1.0, 0.0);
+            p = c2Sub(mid_a, c2V(eA.x, 0.0));
+        } else {
+            n = c2V(1.0, 0.0);
+            p = c2Add(mid_a, c2V(eA.x, 0.0));
+        }
+    }
+    // y axis overlap is smaller
+    else {
+        depth = dy;
+        if d.y < 0.0 {
+            n = c2V(0.0, -1.0);
+            p = c2Sub(mid_a, c2V(0.0, eA.y));
+        } else {
+            n = c2V(0.0, 1.0);
+            p = c2Add(mid_a, c2V(0.0, eA.y));
+        }
+    }
+
+    (*m).count = 1;
+    (*m).contact_points[0] = p;
+    (*m).depths[0] = depth;
+    (*m).n = n;
 }
-extern "C" {
-    pub fn c2CapsuletoCapsuleManifold(A: c2Capsule, B: c2Capsule, m: *mut c2Manifold);
+
+pub unsafe fn c2AABBtoCapsuleManifold(A: c2AABB, B: c2Capsule, m: *mut c2Manifold) {
+    (*m).count = 0;
+    let mut p = c2Poly {
+        count: 0,
+        verts: [c2V(0.0, 0.0); C2_MAX_POLYGON_VERTS as usize],
+        norms: [c2V(0.0, 0.0); C2_MAX_POLYGON_VERTS as usize],
+    };
+    c2BBVerts(&mut p.verts, &A);
+    p.count = 4;
+    c2Norms(&mut p.verts, &mut p.norms, 4);
+    c2CapsuletoPolyManifold(B, &p, std::ptr::null(), m);
+    (*m).n = c2Neg((*m).n);
 }
-extern "C" {
-    pub fn c2CircletoPolyManifold(
-        A: c2Circle,
-        B: *const c2Poly,
-        bx: *const c2x,
-        m: *mut c2Manifold,
+
+pub unsafe fn c2CapsuletoCapsuleManifold(A: c2Capsule, B: c2Capsule, m: *mut c2Manifold) {
+    {
+        (*m).count = 0;
+        let mut a = c2V(0.0, 0.0);
+        let mut b = c2V(0.0, 0.0);
+        let r = A.r + B.r;
+        let d = c2GJK(
+            &A as *const _ as *const std::os::raw::c_void,
+            C2_TYPE_C2_TYPE_CAPSULE,
+            std::ptr::null_mut(),
+            &B as *const _ as *const std::os::raw::c_void,
+            C2_TYPE_C2_TYPE_CAPSULE,
+            std::ptr::null_mut(),
+            &mut a,
+            &mut b,
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        if d < r {
+            let n;
+            if d == 0.0 {
+                n = c2Norm(c2Skew(c2Sub(A.b, A.a)));
+            } else {
+                n = c2Norm(c2Sub(b, a));
+            }
+
+            (*m).count = 1;
+            (*m).depths[0] = r - d;
+            (*m).contact_points[0] = c2Sub(b, c2Mulvs(n, B.r));
+            (*m).n = n;
+        }
+    }
+}
+
+fn c2MulxvT(a: c2x, b: c2v) -> c2v {
+    return c2MulrvT(a.r, c2Sub(b, a.p));
+}
+
+fn c2MulrvT(a: c2r, b: c2v) -> c2v {
+    return c2V(a.c * b.x + a.s * b.y, -a.s * b.x + a.c * b.y);
+}
+
+unsafe fn c2PlaneAt(p: *const c2Poly, i: i32) -> c2h {
+    c2h {
+        n: (*p).norms[i as usize],
+        d: c2Dot((*p).norms[i as usize], (*p).verts[i as usize]),
+    }
+}
+
+fn c2Dist(h: c2h, p: c2v) -> f32 {
+    return c2Dot(h.n, p) - h.d;
+}
+
+fn c2Project(h: c2h, p: c2v) -> c2v {
+    return c2Sub(p, c2Mulvs(h.n, c2Dist(h, p)));
+}
+
+pub unsafe fn c2CircletoPolyManifold(
+    A: c2Circle,
+    B: *const c2Poly,
+    bx_tr: *const c2x,
+    m: *mut c2Manifold,
+) {
+    (*m).count = 0;
+    let mut a = c2V(0.0, 0.0);
+    let mut b = c2V(0.0, 0.0);
+    let mut d = c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CIRCLE,
+        std::ptr::null_mut(),
+        B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        bx_tr,
+        &mut a,
+        &mut b,
+        0,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
+    );
+
+    // shallow, the circle center did not hit the polygon
+    // just use a and b from GJK to define the collision
+    if d != 0.0 {
+        let n = c2Sub(b, a);
+        let mut l = c2Dot(n, n);
+        if l < A.r * A.r {
+            l = l.sqrt();
+            (*m).count = 1;
+            (*m).contact_points[0] = b;
+            (*m).depths[0] = A.r - l;
+            (*m).n = c2Mulvs(n, 1.0 / l);
+        }
+    }
+    // Circle center is inside the polygon
+    // find the face closest to circle center to form manifold
+    else {
+        let bx = if !bx_tr.is_null() {
+            *bx_tr
+        } else {
+            c2xIdentity()
+        };
+        let mut sep = -std::f32::MAX;
+        let mut index = !0;
+        let local = c2MulxvT(bx, A.p);
+
+        for i in 0..(*B).count {
+            {
+                let h = c2PlaneAt(B, i);
+                d = c2Dist(h, local);
+                if d > A.r {
+                    return;
+                }
+                if d > sep {
+                    sep = d;
+                    index = i;
+                }
+            }
+
+            let h = c2PlaneAt(B, index);
+            let p = c2Project(h, local);
+            (*m).count = 1;
+            (*m).contact_points[0] = c2Mulxv(bx, p);
+            (*m).depths[0] = A.r - sep;
+            (*m).n = c2Neg(c2Mulrv(bx.r, (*B).norms[index as usize]));
+        }
+    }
+}
+
+pub unsafe fn c2AABBtoPolyManifold(
+    A: c2AABB,
+    B: *const c2Poly,
+    bx: *const c2x,
+    m: *mut c2Manifold,
+) {
+    (*m).count = 0;
+    let mut p = c2Poly {
+        count: 0,
+        verts: [c2V(0.0, 0.0); C2_MAX_POLYGON_VERTS as usize],
+        norms: [c2V(0.0, 0.0); C2_MAX_POLYGON_VERTS as usize],
+    };
+    c2BBVerts(&mut p.verts, &A);
+    p.count = 4;
+    c2Norms(&mut p.verts, &mut p.norms, 4);
+    c2PolytoPolyManifold(&p, std::ptr::null(), B, bx, m);
+}
+
+unsafe fn c2SidePlanesFromPoly(
+    seg: &mut [c2v; 2],
+    x: c2x,
+    p: *const c2Poly,
+    e: i32,
+    h: *mut c2h,
+) -> i32 {
+    let ra = c2Mulxv(x, (*p).verts[e as usize]);
+    let rb = c2Mulxv(
+        x,
+        (*p).verts[if e + 1 == if (*p).count != 0 { 0 } else { e + 1 } {
+            1
+        } else {
+            0
+        }],
+    );
+    return c2SidePlanes(seg, ra, rb, h);
+}
+
+// clip a segment to a plane
+unsafe fn c2Clip(seg: &mut [c2v; 2], h: c2h) -> i32 {
+    let mut out: [c2v; 2] = [c2V(0.0, 0.0); 2];
+    let mut sp = 0;
+    let d0: f32;
+    let d1: f32;
+    d0 = c2Dist(h, seg[0]);
+    if (d0) < 0.0 {
+        out[sp] = seg[0];
+        sp += 1;
+    }
+    d1 = c2Dist(h, seg[1]);
+    if (d1) < 0.0 {
+        out[sp] = seg[1];
+        sp += 1
+    }
+    if d0 == 0.0 && d1 == 0.0 {
+        out[sp] = seg[0];
+        sp += 1;
+        out[sp] = seg[1];
+        sp += 1;
+    } else if d0 * d1 <= 0.0 {
+        out[sp] = c2Intersect(seg[0], seg[1], d0, d1);
+        sp += 1;
+    }
+    seg[0] = out[0];
+    seg[1] = out[1];
+    return sp as i32;
+}
+
+fn c2Intersect(a: c2v, b: c2v, da: f32, db: f32) -> c2v {
+    return c2Add(a, c2Mulvs(c2Sub(b, a), da / (da - db)));
+}
+
+unsafe fn c2SidePlanes(seg: &mut [c2v; 2], ra: c2v, rb: c2v, h: *mut c2h) -> i32 {
+    let _in = c2Norm(c2Sub(rb, ra));
+    let left = c2h {
+        n: c2Neg(_in),
+        d: c2Dot(c2Neg(_in), ra),
+    };
+    let right = c2h {
+        n: _in,
+        d: c2Dot(_in, rb),
+    };
+    if c2Clip(seg, left) < 2 {
+        return 0;
+    }
+    if c2Clip(seg, right) < 2 {
+        return 0;
+    }
+    if !h.is_null() {
+        (*h).n = c2CCW90(_in);
+        (*h).d = c2Dot(c2CCW90(_in), ra);
+    }
+    return 1;
+}
+
+unsafe fn c2KeepDeep(seg: &mut [c2v; 2], h: c2h, m: *mut c2Manifold) {
+    let mut cp = 0;
+    for i in 0..2 {
+        let p = seg[i];
+        let d = c2Dist(h, p);
+        if d <= 0.0 {
+            (*m).contact_points[cp] = p;
+            (*m).depths[cp] = -d;
+            cp += 1;
+        }
+    }
+    (*m).count = cp as i32;
+    (*m).n = h.n;
+}
+
+unsafe fn c2Incident(
+    incident: &mut [c2v; 2],
+    ip: *const c2Poly,
+    ix: c2x,
+    rn_in_incident_space: c2v,
+) {
+    let mut index: i32 = !0;
+    let mut min_dot = std::f32::MAX;
+    for i in 0..(*ip).count {
+        let dot = c2Dot(rn_in_incident_space, (*ip).norms[i as usize]);
+        if dot < min_dot {
+            min_dot = dot;
+            index = i;
+        }
+    }
+    incident[0] = c2Mulxv(ix, (*ip).verts[index as usize]);
+    incident[1] = c2Mulxv(
+        ix,
+        (*ip).verts[(index + 1 == if (*ip).count != 0 { 0 } else { index + 1 }) as usize],
     );
 }
-extern "C" {
-    pub fn c2AABBtoPolyManifold(A: c2AABB, B: *const c2Poly, bx: *const c2x, m: *mut c2Manifold);
-}
-extern "C" {
-    pub fn c2CapsuletoPolyManifold(
-        A: c2Capsule,
-        B: *const c2Poly,
-        bx: *const c2x,
-        m: *mut c2Manifold,
+
+pub unsafe fn c2CapsuletoPolyManifold(
+    A: c2Capsule,
+    B: *const c2Poly,
+    bx_ptr: *const c2x,
+    m: *mut c2Manifold,
+) {
+    (*m).count = 0;
+    let mut a = c2V(0.0, 0.0);
+    let mut b = c2V(0.0, 0.0);
+    let d = c2GJK(
+        &A as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_CAPSULE,
+        std::ptr::null_mut(),
+        B as *const _ as *const std::os::raw::c_void,
+        C2_TYPE_C2_TYPE_POLY,
+        bx_ptr,
+        &mut a,
+        &mut b,
+        0,
+        std::ptr::null_mut(),
+        std::ptr::null_mut(),
     );
+
+    // deep, treat as segment to poly collision
+    if d < 1.0e-6 {
+        let bx = if !bx_ptr.is_null() {
+            *bx_ptr
+        } else {
+            c2xIdentity()
+        };
+        let mut A_in_B = c2Capsule {
+            a: c2V(0.0, 0.0),
+            b: c2V(0.0, 0.0),
+            r: 0.0,
+        };
+        A_in_B.a = c2MulxvT(bx, A.a);
+        A_in_B.b = c2MulxvT(bx, A.b);
+        let ab = c2Norm(c2Sub(A_in_B.a, A_in_B.b));
+
+        // test capsule axes
+        let mut ab_h0 = c2h {
+            n: c2V(0.0, 0.0),
+            d: 0.0,
+        };
+        ab_h0.n = c2CCW90(ab);
+        ab_h0.d = c2Dot(A_in_B.a, ab_h0.n);
+        let v0 = c2Support((*B).verts, (*B).count, c2Neg(ab_h0.n));
+        let s0 = c2Dist(ab_h0, (*B).verts[v0 as usize]);
+
+        let mut ab_h1 = c2h {
+            n: c2V(0.0, 0.0),
+            d: 0.0,
+        };
+        ab_h1.n = c2Skew(ab);
+        ab_h1.d = c2Dot(A_in_B.a, ab_h1.n);
+        let v1 = c2Support((*B).verts, (*B).count, c2Neg(ab_h1.n));
+        let s1 = c2Dist(ab_h1, (*B).verts[v1 as usize]);
+
+        // test poly axes
+        let mut index = !0;
+        let mut sep = -std::f32::MAX;
+        let mut code = 0;
+        for i in 0..(*B).count {
+            let h = c2PlaneAt(B, i);
+            let da = c2Dot(A_in_B.a, c2Neg(h.n));
+            let db = c2Dot(A_in_B.b, c2Neg(h.n));
+            let d;
+            if da > db {
+                d = c2Dist(h, A_in_B.a);
+            } else {
+                d = c2Dist(h, A_in_B.b);
+            }
+            if d > sep {
+                sep = d;
+                index = i;
+            }
+        }
+
+        // track axis of minimum separation
+        if s0 > sep {
+            sep = s0;
+            index = v0;
+            code = 1;
+        }
+
+        if s1 > sep {
+            sep = s1;
+            index = v1;
+            code = 2;
+        }
+
+        match code {
+            // poly face
+            0 => {
+                let mut seg: [c2v; 2] = [A.a, A.b];
+                let mut h = c2h {
+                    n: c2V(0.0, 0.0),
+                    d: 0.0,
+                };
+                if c2SidePlanesFromPoly(&mut seg, bx, B, index, &mut h) == 0 {
+                    return;
+                }
+                c2KeepDeep(&mut seg, h, m);
+                (*m).n = c2Neg((*m).n);
+            }
+
+            1 =>
+            // side 0 of capsule segment
+            {
+                let mut incident: [c2v; 2] = [c2V(0.0, 0.0); 2];
+                c2Incident(&mut incident, B, bx, ab_h0.n);
+                let mut h = c2h {
+                    n: c2V(0.0, 0.0),
+                    d: 0.0,
+                };
+                if c2SidePlanes(&mut incident, A_in_B.b, A_in_B.a, &mut h) == 0 {
+                    return;
+                }
+                c2KeepDeep(&mut incident, h, m);
+            }
+
+            2 =>
+            // side 1 of capsule segment
+            {
+                let mut incident: [c2v; 2] = [c2V(0.0, 0.0); 2];
+                c2Incident(&mut incident, B, bx, ab_h1.n);
+                let mut h = c2h {
+                    n: c2V(0.0, 0.0),
+                    d: 0.0,
+                };
+                if c2SidePlanes(&mut incident, A_in_B.a, A_in_B.b, &mut h) == 0 {
+                    return;
+                }
+                c2KeepDeep(&mut incident, h, m);
+            }
+
+            _ => {
+                // should never happen.
+                return;
+            }
+        }
+
+        for i in 0..(*m).count {
+            (*m).depths[i as usize] += A.r;
+        }
+    }
+    // shallow, use GJK results a and b to define manifold
+    else if d < A.r {
+        (*m).count = 1;
+        (*m).n = c2Norm(c2Sub(b, a));
+        (*m).contact_points[0] = c2Add(a, c2Mulvs((*m).n, A.r));
+        (*m).depths[0] = A.r - d;
+    }
 }
-extern "C" {
-    pub fn c2PolytoPolyManifold(
-        A: *const c2Poly,
-        ax: *const c2x,
-        B: *const c2Poly,
-        bx: *const c2x,
-        m: *mut c2Manifold,
+
+fn c2MulrrT(a: c2r, b: c2r) -> c2r {
+    c2r {
+        c: a.c * b.c + a.s * b.s,
+        s: a.c * b.s - a.s * b.c,
+    }
+}
+
+fn c2MulxxT(a: c2x, b: c2x) -> c2x {
+    c2x {
+        r: c2MulrrT(a.r, b.r),
+        p: c2MulrvT(a.r, c2Sub(b.p, a.p)),
+    }
+}
+
+unsafe fn c2CheckFaces(
+    A: *const c2Poly,
+    ax: c2x,
+    B: *const c2Poly,
+    bx: c2x,
+    face_index: &mut i32,
+) -> f32 {
+    let b_in_a = c2MulxxT(ax, bx);
+    let a_in_b = c2MulxxT(bx, ax);
+    let mut sep = -std::f32::MAX;
+    let mut index = !0;
+
+    for i in 0..(*A).count {
+        let h = c2PlaneAt(A, i);
+        let idx = c2Support((*B).verts, (*B).count, c2Mulrv(a_in_b.r, c2Neg(h.n)));
+        let p = c2Mulxv(b_in_a, (*B).verts[idx as usize]);
+        let d = c2Dist(h, p);
+        if d > sep {
+            sep = d;
+            index = i;
+        }
+    }
+
+    *face_index = index;
+    return sep;
+}
+
+pub unsafe fn c2PolytoPolyManifold(
+    A: *const c2Poly,
+    ax_ptr: *const c2x,
+    B: *const c2Poly,
+    bx_ptr: *const c2x,
+    m: *mut c2Manifold,
+) {
+    (*m).count = 0;
+    let ax = if !ax_ptr.is_null() {
+        *ax_ptr
+    } else {
+        c2xIdentity()
+    };
+    let bx = if !bx_ptr.is_null() {
+        *bx_ptr
+    } else {
+        c2xIdentity()
+    };
+    let mut ea: i32 = 0;
+    let mut eb: i32 = 0;
+    let sa = c2CheckFaces(A, ax, B, bx, &mut ea);
+    let sb = c2CheckFaces(B, bx, A, ax, &mut eb);
+    if sa >= 0.0 {
+        return;
+    }
+    if sb >= 0.0 {
+        return;
+    }
+
+    let rp: *const c2Poly;
+    let ip: *const c2Poly;
+    let rx: c2x;
+    let ix: c2x;
+    let re: i32;
+    let kRelTol = 0.95;
+    let kAbsTol = 0.01;
+    let flip: i32;
+    if sa * kRelTol > sb + kAbsTol {
+        rp = A;
+        rx = ax;
+        ip = B;
+        ix = bx;
+        re = ea;
+        flip = 0;
+    } else {
+        rp = B;
+        rx = bx;
+        ip = A;
+        ix = ax;
+        re = eb;
+        flip = 1;
+    }
+
+    let mut incident: [c2v; 2] = [c2V(0.0, 0.0); 2];
+    c2Incident(
+        &mut incident,
+        ip,
+        ix,
+        c2MulrvT(ix.r, c2Mulrv(rx.r, (*rp).norms[re as usize])),
     );
+    let mut rh = c2h {
+        n: c2V(0.0, 0.0),
+        d: 0.0,
+    };
+    if c2SidePlanesFromPoly(&mut incident, rx, rp, re, &mut rh) == 0 {
+        return;
+    }
+    c2KeepDeep(&mut incident, rh, m);
+    if flip != 0 {
+        (*m).n = c2Neg((*m).n);
+    }
 }
+
 pub const C2_TYPE_C2_TYPE_NONE: C2_TYPE = 0;
 pub const C2_TYPE_C2_TYPE_CIRCLE: C2_TYPE = 1;
 pub const C2_TYPE_C2_TYPE_AABB: C2_TYPE = 2;
@@ -640,21 +1484,557 @@ fn bindgen_test_layout_c2GJKCache() {
         )
     );
 }
-extern "C" {
-    pub fn c2GJK(
-        A: *const ::std::os::raw::c_void,
-        typeA: C2_TYPE,
-        ax_ptr: *const c2x,
-        B: *const ::std::os::raw::c_void,
-        typeB: C2_TYPE,
-        bx_ptr: *const c2x,
-        outA: *mut c2v,
-        outB: *mut c2v,
-        use_radius: ::std::os::raw::c_int,
-        iterations: *mut ::std::os::raw::c_int,
-        cache: *mut c2GJKCache,
-    ) -> f32;
+
+#[derive(Debug, Copy, Clone)]
+struct c2Proxy {
+    radius: f32,
+    count: i32,
+    verts: [c2v; C2_MAX_POLYGON_VERTS as usize],
 }
+
+#[derive(Debug, Copy, Clone)]
+struct c2sv {
+    sA: c2v,
+    sB: c2v,
+    p: c2v,
+    u: f32,
+    iA: i32,
+    iB: i32,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct c2Simplex {
+    a: c2sv,
+    b: c2sv,
+    c: c2sv,
+    d: c2sv,
+    div: f32,
+    count: i32,
+}
+
+fn c2Add(mut a: c2v, b: c2v) -> c2v {
+    a.x += b.x;
+    a.y += b.y;
+    return a;
+}
+
+fn c2Mulxv(a: c2x, b: c2v) -> c2v {
+    return c2Add(c2Mulrv(a.r, b), a.p);
+}
+
+fn c2Mulrv(a: c2r, b: c2v) -> c2v {
+    return c2V(a.c * b.x - a.s * b.y, a.s * b.x + a.c * b.y);
+}
+
+fn c2xIdentity() -> c2x {
+    c2x {
+        p: c2V(0.0, 0.0),
+        r: c2RotIdentity(),
+    }
+}
+
+fn c2RotIdentity() -> c2r {
+    c2r { c: 1.0, s: 0.0 }
+}
+
+unsafe fn c2BBVerts(out: &mut [c2v; 8], bb: *const c2AABB) {
+    out[0] = (*bb).min;
+    out[1] = c2V((*bb).max.x, (*bb).min.y);
+    out[2] = (*bb).max;
+    out[3] = c2V((*bb).min.x, (*bb).max.y);
+}
+
+unsafe fn c2MakeProxy(shape: *const ::std::os::raw::c_void, _type: C2_TYPE, p: *mut c2Proxy) {
+    match _type {
+        C2_TYPE_C2_TYPE_CIRCLE => {
+            let c = std::mem::transmute::<*const ::std::os::raw::c_void, *const c2Circle>(shape);
+            (*p).radius = (*c).r;
+            (*p).count = 1;
+            (*p).verts[0] = (*c).p;
+        }
+
+        C2_TYPE_C2_TYPE_AABB => {
+            let bb = std::mem::transmute::<*const ::std::os::raw::c_void, *const c2AABB>(shape);
+            (*p).radius = 0.0;
+            (*p).count = 4;
+            c2BBVerts(&mut (*p).verts, bb);
+        }
+
+        C2_TYPE_C2_TYPE_CAPSULE => {
+            let c = std::mem::transmute::<*const ::std::os::raw::c_void, *const c2Capsule>(shape);
+            (*p).radius = (*c).r;
+            (*p).count = 2;
+            (*p).verts[0] = (*c).a;
+            (*p).verts[1] = (*c).b;
+        }
+
+        C2_TYPE_C2_TYPE_POLY => {
+            let poly = std::mem::transmute::<*const ::std::os::raw::c_void, *const c2Poly>(shape);
+            (*p).radius = 0.0;
+            (*p).count = (*poly).count;
+            for i in 0..(*p).count as usize {
+                (*p).verts[i] = (*poly).verts[i];
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn c2Len(a: c2v) -> f32 {
+    c2Dot(a, a).sqrt()
+}
+
+fn c2Det2(a: c2v, b: c2v) -> f32 {
+    a.x * b.y - a.y * b.x
+}
+
+unsafe fn c2GJKSimplexMetric(s: *const c2Simplex) -> f32 {
+    match (*s).count {
+        0 | 1 => 0.0,
+        2 => c2Len(c2Sub((*s).b.p, (*s).a.p)),
+        3 => c2Det2(c2Sub((*s).b.p, (*s).a.p), c2Sub((*s).c.p, (*s).a.p)),
+        _ => unreachable!(),
+    }
+}
+
+const C2_GJK_ITERS: i32 = 20;
+
+unsafe fn c22(s: *mut c2Simplex) {
+    let a = (*s).a.p;
+    let b = (*s).b.p;
+    let u = c2Dot(b, c2Sub(b, a));
+    let v = c2Dot(a, c2Sub(a, b));
+
+    if v <= 0.0 {
+        (*s).a.u = 1.0;
+        (*s).div = 1.0;
+        (*s).count = 1;
+    } else if u <= 0.0 {
+        (*s).a = (*s).b;
+        (*s).a.u = 1.0;
+        (*s).div = 1.0;
+        (*s).count = 1;
+    } else {
+        (*s).a.u = u;
+        (*s).b.u = v;
+        (*s).div = u + v;
+        (*s).count = 2;
+    }
+}
+
+unsafe fn c23(s: *mut c2Simplex) {
+    let a = (*s).a.p;
+    let b = (*s).b.p;
+    let c = (*s).c.p;
+
+    let uAB = c2Dot(b, c2Sub(b, a));
+    let vAB = c2Dot(a, c2Sub(a, b));
+    let uBC = c2Dot(c, c2Sub(c, b));
+    let vBC = c2Dot(b, c2Sub(b, c));
+    let uCA = c2Dot(a, c2Sub(a, c));
+    let vCA = c2Dot(c, c2Sub(c, a));
+    let area = c2Det2(c2Sub(b, a), c2Sub(c, a));
+    let uABC = c2Det2(b, c) * area;
+    let vABC = c2Det2(c, a) * area;
+    let wABC = c2Det2(a, b) * area;
+
+    if vAB <= 0.0 && uCA <= 0.0 {
+        (*s).a.u = 1.0;
+        (*s).div = 1.0;
+        (*s).count = 1;
+    } else if uAB <= 0.0 && vBC <= 0.0 {
+        (*s).a = (*s).b;
+        (*s).a.u = 1.0;
+        (*s).div = 1.0;
+        (*s).count = 1;
+    } else if uBC <= 0.0 && vCA <= 0.0 {
+        (*s).a = (*s).c;
+        (*s).a.u = 1.0;
+        (*s).div = 1.0;
+        (*s).count = 1;
+    } else if uAB > 0.0 && vAB > 0.0 && wABC <= 0.0 {
+        (*s).a.u = uAB;
+        (*s).b.u = vAB;
+        (*s).div = uAB + vAB;
+        (*s).count = 2;
+    } else if uBC > 0.0 && vBC > 0.0 && uABC <= 0.0 {
+        (*s).a = (*s).b;
+        (*s).b = (*s).c;
+        (*s).a.u = uBC;
+        (*s).b.u = vBC;
+        (*s).div = uBC + vBC;
+        (*s).count = 2;
+    } else if uCA > 0.0 && vCA > 0.0 && vABC <= 0.0 {
+        (*s).b = (*s).a;
+        (*s).a = (*s).c;
+        (*s).a.u = uCA;
+        (*s).b.u = vCA;
+        (*s).div = uCA + vCA;
+        (*s).count = 2;
+    } else {
+        (*s).a.u = uABC;
+        (*s).b.u = vABC;
+        (*s).c.u = wABC;
+        (*s).div = uABC + vABC + wABC;
+        (*s).count = 3;
+    }
+}
+
+unsafe fn c2L(s: *const c2Simplex) -> c2v {
+    let den = 1.0 / (*s).div;
+    match (*s).count {
+        1 => return (*s).a.p,
+        2 => {
+            return c2Add(
+                c2Mulvs((*s).a.p, den * (*s).a.u),
+                c2Mulvs((*s).b.p, den * (*s).b.u),
+            )
+        }
+        3 => {
+            return c2Add(
+                c2Add(
+                    c2Mulvs((*s).a.p, den * (*s).a.u),
+                    c2Mulvs((*s).b.p, den * (*s).b.u),
+                ),
+                c2Mulvs((*s).c.p, den * (*s).c.u),
+            )
+        }
+        _ => return c2V(0.0, 0.0),
+    }
+}
+
+fn c2Neg(a: c2v) -> c2v {
+    return c2V(-a.x, -a.y);
+}
+
+fn c2CCW90(a: c2v) -> c2v {
+    c2v { x: a.y, y: -a.x }
+}
+
+fn c2Skew(a: c2v) -> c2v {
+    c2v { x: -a.y, y: a.x }
+}
+
+unsafe fn c2D(s: *const c2Simplex) -> c2v {
+    match (*s).count {
+        1 => return c2Neg((*s).a.p),
+        2 => {
+            let ab = c2Sub((*s).b.p, (*s).a.p);
+            if c2Det2(ab, c2Neg((*s).a.p)) > 0.0 {
+                return c2Skew(ab);
+            }
+            return c2CCW90(ab);
+        }
+        _ => return c2V(0.0, 0.0),
+    }
+}
+
+fn c2Support(verts: [c2v; 8], count: i32, d: c2v) -> i32 {
+    let mut imax = 0;
+    let mut dmax = c2Dot(verts[0], d);
+
+    for i in 1..count {
+        let dot = c2Dot(verts[i as usize], d);
+        if dot > dmax {
+            imax = i;
+            dmax = dot;
+        }
+    }
+
+    return imax;
+}
+
+/*fn c2MulrvT(a: c2r, b: c2v) -> c2v {
+    return c2V(a.c * b.x + a.s * b.y, -a.s * b.x + a.c * b.y);
+}*/
+
+fn c2Witness(s: &mut c2Simplex, a: &mut c2v, b: &mut c2v) {
+    let den = 1.0 / (*s).div;
+    match (*s).count {
+        1 => {
+            *a = (*s).a.sA;
+            *b = (*s).a.sB;
+        }
+        2 => {
+            *a = c2Add(
+                c2Mulvs((*s).a.sA, den * (*s).a.u),
+                c2Mulvs((*s).b.sA, den * (*s).b.u),
+            );
+            *b = c2Add(
+                c2Mulvs((*s).a.sB, den * (*s).a.u),
+                c2Mulvs((*s).b.sB, den * (*s).b.u),
+            );
+        }
+        3 => {
+            *a = c2Add(
+                c2Add(
+                    c2Mulvs((*s).a.sA, den * (*s).a.u),
+                    c2Mulvs((*s).b.sA, den * (*s).b.u),
+                ),
+                c2Mulvs((*s).c.sA, den * (*s).c.u),
+            );
+            *b = c2Add(
+                c2Add(
+                    c2Mulvs((*s).a.sB, den * (*s).a.u),
+                    c2Mulvs((*s).b.sB, den * (*s).b.u),
+                ),
+                c2Mulvs((*s).c.sB, den * (*s).c.u),
+            );
+        }
+        _ => {
+            *a = c2V(0.0, 0.0);
+            *b = c2V(0.0, 0.0);
+        }
+    }
+}
+
+fn c2Norm(a: c2v) -> c2v {
+    return c2Div(a, c2Len(a));
+}
+
+fn c2Div(a: c2v, b: f32) -> c2v {
+    return c2Mulvs(a, 1.0 / b);
+}
+
+// Partly Verified
+pub unsafe fn c2GJK(
+    A: *const ::std::os::raw::c_void,
+    typeA: C2_TYPE,
+    ax_ptr: *const c2x,
+    B: *const ::std::os::raw::c_void,
+    typeB: C2_TYPE,
+    bx_ptr: *const c2x,
+    outA: *mut c2v,
+    outB: *mut c2v,
+    use_radius: ::std::os::raw::c_int,
+    iterations: *mut ::std::os::raw::c_int,
+    cache: *mut c2GJKCache,
+) -> f32 {
+    let ax: c2x;
+    let bx: c2x;
+    if ax_ptr.is_null() {
+        ax = c2xIdentity();
+    } else {
+        ax = *ax_ptr;
+    }
+    if bx_ptr.is_null() {
+        bx = c2xIdentity();
+    } else {
+        bx = *bx_ptr;
+    }
+
+    let mut pA: c2Proxy = c2Proxy {
+        radius: 0.0,
+        count: 0,
+        verts: [c2V(0.0, 0.0); 8],
+    };
+    let mut pB: c2Proxy = c2Proxy {
+        radius: 0.0,
+        count: 0,
+        verts: [c2V(0.0, 0.0); 8],
+    };
+    c2MakeProxy(A, typeA, &mut pA);
+    c2MakeProxy(B, typeB, &mut pB);
+
+    let blank_c2sv = c2sv {
+        sA: c2V(0.0, 0.0),
+        sB: c2V(0.0, 0.0),
+        p: c2V(0.0, 0.0),
+        u: 0.0,
+        iA: 0,
+        iB: 0,
+    };
+
+    let mut s: c2Simplex = c2Simplex {
+        div: 0.0,
+        count: 0,
+        a: blank_c2sv,
+        b: blank_c2sv,
+        c: blank_c2sv,
+        d: blank_c2sv,
+    };
+    let verts: *mut c2sv = &mut s.a;
+
+    // Metric and caching system as designed by E. Catto in Box2D for his conservative advancment/bilateral
+    // advancement algorithim implementations. The purpose is to reuse old simplex indices (any simplex that
+    // have not degenerated into a line or point) as a starting point. This skips the first few iterations of
+    // GJK going from point, to line, to triangle, lowering convergence rates dramatically for temporally
+    // coherent cases (such as in time of impact searches).
+    let mut cache_was_read: i32 = 0;
+
+    if !cache.is_null() {
+        let cache_was_good: bool = !!(*cache).count != 0;
+
+        if cache_was_good {
+            //for (int i = 0; i < (*cache).count; ++i)
+            for i in 0..(*cache).count {
+                let iA = (*cache).iA[i as usize];
+                let iB = (*cache).iB[i as usize];
+                let sA = c2Mulxv(ax, pA.verts[iA as usize]);
+                let sB = c2Mulxv(bx, pB.verts[iB as usize]);
+                let v: *mut c2sv = verts.offset(i as isize);
+                (*v).iA = iA;
+                (*v).sA = sA;
+                (*v).iB = iB;
+                (*v).sB = sB;
+                (*v).p = c2Sub((*v).sB, (*v).sA);
+                (*v).u = 0.0;
+            }
+            s.count = (*cache).count;
+            s.div = (*cache).div;
+
+            let metric_old = (*cache).metric;
+            let metric = c2GJKSimplexMetric(&s);
+
+            let min_metric = if metric < metric_old {
+                metric
+            } else {
+                metric_old
+            };
+            let max_metric = if metric > metric_old {
+                metric
+            } else {
+                metric_old
+            };
+
+            if !(min_metric < max_metric * 2.0 && metric < -1.0e8) {
+                cache_was_read = 1;
+            }
+        }
+    }
+
+    if cache_was_read == 0 {
+        s.a.iA = 0;
+        s.a.iB = 0;
+        s.a.sA = c2Mulxv(ax, pA.verts[0]);
+        s.a.sB = c2Mulxv(bx, pB.verts[0]);
+        s.a.p = c2Sub(s.a.sB, s.a.sA);
+        s.a.u = 1.0;
+        s.div = 1.0;
+        s.count = 1;
+    }
+
+    let mut saveA: [i32; 3] = [0; 3];
+    let mut saveB: [i32; 3] = [0; 3];
+    let mut save_count: i32;
+    let mut d0: f32 = std::f32::MAX;
+    let mut d1: f32 = std::f32::MAX;
+    let mut iter: i32 = 0;
+    let mut hit: i32 = 0;
+    while iter < C2_GJK_ITERS {
+        save_count = s.count;
+        for i in 0..save_count {
+            saveA[i as usize] = (*verts.offset(i as isize)).iA;
+            saveB[i as usize] = (*verts.offset(i as isize)).iB;
+        }
+
+        match s.count {
+            1 => {}
+            2 => {
+                c22(&mut s);
+            }
+            3 => {
+                c23(&mut s);
+            }
+            _ => {}
+        }
+
+        if s.count == 3 {
+            hit = 1;
+            break;
+        }
+
+        let p = c2L(&s);
+        d1 = c2Dot(p, p);
+
+        if d1 > d0 {
+            break;
+        }
+        d0 = d1;
+
+        let d = c2D(&s);
+        if c2Dot(d, d) < std::f32::EPSILON * std::f32::EPSILON {
+            break;
+        };
+
+        let iA = c2Support(pA.verts, pA.count, c2MulrvT(ax.r, c2Neg(d)));
+        let sA = c2Mulxv(ax, pA.verts[iA as usize]);
+        let iB = c2Support(pB.verts, pB.count, c2MulrvT(bx.r, d));
+        let sB = c2Mulxv(bx, pB.verts[iB as usize]);
+
+        let v: *mut c2sv = verts.offset(s.count as isize);
+        (*v).iA = iA;
+        (*v).sA = sA;
+        (*v).iB = iB;
+        (*v).sB = sB;
+        (*v).p = c2Sub((*v).sB, (*v).sA);
+
+        let mut dup = 0;
+        for i in 0..save_count as usize {
+            if iA == saveA[i] && iB == saveB[i] {
+                dup = 1;
+                break;
+            }
+        }
+        if dup != 0 {
+            break;
+        }
+
+        s.count += 1;
+        iter += 1;
+    }
+
+    let mut a = c2V(0.0, 0.0);
+    let mut b = c2V(0.0, 0.0);
+    c2Witness(&mut s, &mut a, &mut b);
+    let mut dist = c2Len(c2Sub(a, b));
+
+    if hit != 0 {
+        a = b;
+        dist = 0.0;
+    } else if use_radius != 0 {
+        let rA = pA.radius;
+        let rB = pB.radius;
+
+        if dist > rA + rB && dist > std::f32::EPSILON {
+            dist -= rA + rB;
+            let n = c2Norm(c2Sub(b, a));
+            a = c2Add(a, c2Mulvs(n, rA));
+            b = c2Sub(b, c2Mulvs(n, rB));
+            if a.x == b.x && a.y == b.y {
+                dist = 0.0;
+            }
+        } else {
+            let p = c2Mulvs(c2Add(a, b), 0.5);
+            a = p;
+            b = p;
+            dist = 0.0;
+        }
+    }
+
+    if !cache.is_null() {
+        (*cache).metric = c2GJKSimplexMetric(&s);
+        (*cache).count = s.count;
+        for i in 0..s.count {
+            let v = verts.offset(i as isize);
+            (*cache).iA[i as usize] = (*v).iA;
+            (*cache).iB[i as usize] = (*v).iB;
+        }
+        (*cache).div = s.div;
+    }
+
+    if !outA.is_null() {
+        *outA = a;
+    }
+    if !outB.is_null() {
+        *outB = b;
+    }
+    if !iterations.is_null() {
+        *iterations = iter;
+    }
+    return dist;
+}
+
 extern "C" {
     pub fn c2TOI(
         A: *const ::std::os::raw::c_void,
@@ -669,36 +2049,315 @@ extern "C" {
         iterations: *mut ::std::os::raw::c_int,
     ) -> f32;
 }
-extern "C" {
-    pub fn c2Hull(verts: *mut c2v, count: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+
+pub unsafe fn c2Norms(
+    verts: &mut [c2v; C2_MAX_POLYGON_VERTS as usize],
+    norms: &mut [c2v; C2_MAX_POLYGON_VERTS as usize],
+    count: ::std::os::raw::c_int,
+) {
+    for i in 1..count {
+        let a = i;
+        let b = if i + 1 < count { i + 1 } else { 0 };
+        let e = c2Sub(verts[b as usize], verts[a as usize]);
+        norms[i as usize] = c2Norm(c2CCW90(e));
+    }
 }
-extern "C" {
-    pub fn c2Norms(verts: *mut c2v, norms: *mut c2v, count: ::std::os::raw::c_int);
+
+pub unsafe fn c2Hull(
+    verts: &mut [c2v; C2_MAX_POLYGON_VERTS as usize],
+    mut count: ::std::os::raw::c_int,
+) -> ::std::os::raw::c_int {
+    if count <= 2 {
+        return 0;
+    }
+    count = count.min(C2_MAX_POLYGON_VERTS as i32);
+
+    let mut right = 0;
+    let mut xmax = verts[0].x;
+    for i in 1..count {
+        let x = verts[i as usize].x;
+        if x > xmax {
+            xmax = x;
+            right = i;
+        } else if x == xmax {
+            if verts[i as usize].y < verts[right as usize].y {
+                right = i;
+            }
+        }
+    }
+
+    let mut hull: [i32; C2_MAX_POLYGON_VERTS as usize] = [0; C2_MAX_POLYGON_VERTS as usize];
+    let mut out_count = 0;
+    let mut index = right;
+
+    loop {
+        hull[out_count] = index;
+        let mut next = 0;
+
+        for i in 1..count {
+            if next == index {
+                next = i;
+                continue;
+            }
+
+            let e1 = c2Sub(
+                verts[next as usize],
+                verts[hull[out_count as usize] as usize],
+            );
+            let e2 = c2Sub(verts[i as usize], verts[hull[out_count as usize] as usize]);
+            let c = c2Det2(e1, e2);
+            if c < 0.0 {
+                next = i;
+            }
+            if c == 0.0 && c2Dot(e2, e2) > c2Dot(e1, e1) {
+                next = i;
+            }
+        }
+
+        out_count += 1;
+        index = next;
+        if next == right {
+            break;
+        }
+    }
+
+    let mut hull_verts: [c2v; C2_MAX_POLYGON_VERTS as usize] =
+        [c2V(0.0, 0.0); C2_MAX_POLYGON_VERTS as usize];
+    for i in 0..out_count as usize {
+        hull_verts[i] = verts[hull[i] as usize];
+    }
+    for i in 0..out_count as usize {
+        verts[i] = hull_verts[i];
+    }
+
+    return out_count as i32;
 }
-extern "C" {
-    pub fn c2MakePoly(p: *mut c2Poly);
+
+pub unsafe fn c2MakePoly(p: *mut c2Poly) {
+    (*p).count = c2Hull(&mut (*p).verts, (*p).count);
+    c2Norms(&mut (*p).verts, &mut (*p).norms, (*p).count);
 }
-extern "C" {
-    pub fn c2Collided(
-        A: *const ::std::os::raw::c_void,
-        ax: *const c2x,
-        typeA: C2_TYPE,
-        B: *const ::std::os::raw::c_void,
-        bx: *const c2x,
-        typeB: C2_TYPE,
-    ) -> ::std::os::raw::c_int;
+
+use std::mem::transmute;
+use std::os::raw::c_void;
+
+pub unsafe fn c2Collided(
+    A: *const ::std::os::raw::c_void,
+    ax: *const c2x,
+    typeA: C2_TYPE,
+    B: *const ::std::os::raw::c_void,
+    bx: *const c2x,
+    typeB: C2_TYPE,
+) -> ::std::os::raw::c_int {
+    match typeA {
+        C2_TYPE_C2_TYPE_CIRCLE => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoCircle(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                *transmute::<*const c_void, *const c2Circle>(B),
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2CircletoAABB(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                *transmute::<*const c_void, *const c2AABB>(B),
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2CircletoCapsule(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                *transmute::<*const c_void, *const c2Capsule>(B),
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2CircletoPoly(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+            ),
+            _ => 0,
+        },
+
+        C2_TYPE_C2_TYPE_AABB => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoAABB(
+                *transmute::<*const c_void, *const c2Circle>(B),
+                *transmute::<*const c_void, *const c2AABB>(A),
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2AABBtoAABB(
+                *transmute::<*const c_void, *const c2AABB>(A),
+                *transmute::<*const c_void, *const c2AABB>(B),
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2AABBtoCapsule(
+                *transmute::<*const c_void, *const c2AABB>(A),
+                *transmute::<*const c_void, *const c2Capsule>(B),
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2AABBtoPoly(
+                *transmute::<*const c_void, *const c2AABB>(A),
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+            ),
+            _ => 0,
+        },
+        C2_TYPE_C2_TYPE_CAPSULE => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoCapsule(
+                *transmute::<*const c_void, *const c2Circle>(B),
+                *transmute::<*const c_void, *const c2Capsule>(A),
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2AABBtoCapsule(
+                *transmute::<*const c_void, *const c2AABB>(B),
+                *transmute::<*const c_void, *const c2Capsule>(A),
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2CapsuletoCapsule(
+                *transmute::<*const c_void, *const c2Capsule>(A),
+                *transmute::<*const c_void, *const c2Capsule>(B),
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2CapsuletoPoly(
+                *transmute::<*const c_void, *const c2Capsule>(A),
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+            ),
+            _ => 0,
+        },
+        C2_TYPE_C2_TYPE_POLY => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoPoly(
+                *transmute::<*const c_void, *const c2Circle>(B),
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2AABBtoPoly(
+                *transmute::<*const c_void, *const c2AABB>(B),
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2CapsuletoPoly(
+                *transmute::<*const c_void, *const c2Capsule>(B),
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2PolytoPoly(
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+            ),
+            _ => 0,
+        },
+
+        _ => 0,
+    }
 }
-extern "C" {
-    pub fn c2Collide(
-        A: *const ::std::os::raw::c_void,
-        ax: *const c2x,
-        typeA: C2_TYPE,
-        B: *const ::std::os::raw::c_void,
-        bx: *const c2x,
-        typeB: C2_TYPE,
-        m: *mut c2Manifold,
-    );
+
+pub unsafe fn c2Collide(
+    A: *const ::std::os::raw::c_void,
+    ax: *const c2x,
+    typeA: C2_TYPE,
+    B: *const ::std::os::raw::c_void,
+    bx: *const c2x,
+    typeB: C2_TYPE,
+    m: *mut c2Manifold,
+) {
+    (*m).count = 0;
+
+    match typeA {
+        C2_TYPE_C2_TYPE_CIRCLE => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoCircleManifold(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                *transmute::<*const c_void, *const c2Circle>(B),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2CircletoAABBManifold(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                *transmute::<*const c_void, *const c2AABB>(B),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2CircletoCapsuleManifold(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                *transmute::<*const c_void, *const c2Capsule>(B),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2CircletoPolyManifold(
+                *transmute::<*const c_void, *const c2Circle>(A),
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+                m,
+            ),
+            _ => return,
+        },
+
+        C2_TYPE_C2_TYPE_AABB => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoAABBManifold(
+                *transmute::<*const c_void, *const c2Circle>(B),
+                *transmute::<*const c_void, *const c2AABB>(A),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2AABBtoAABBManifold(
+                *transmute::<*const c_void, *const c2AABB>(A),
+                *transmute::<*const c_void, *const c2AABB>(B),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2AABBtoCapsuleManifold(
+                *transmute::<*const c_void, *const c2AABB>(A),
+                *transmute::<*const c_void, *const c2Capsule>(B),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2AABBtoPolyManifold(
+                *transmute::<*const c_void, *const c2AABB>(A),
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+                m,
+            ),
+            _ => return,
+        },
+        C2_TYPE_C2_TYPE_CAPSULE => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoCapsuleManifold(
+                *transmute::<*const c_void, *const c2Circle>(B),
+                *transmute::<*const c_void, *const c2Capsule>(A),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2AABBtoCapsuleManifold(
+                *transmute::<*const c_void, *const c2AABB>(B),
+                *transmute::<*const c_void, *const c2Capsule>(A),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2CapsuletoCapsuleManifold(
+                *transmute::<*const c_void, *const c2Capsule>(A),
+                *transmute::<*const c_void, *const c2Capsule>(B),
+                m,
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2CapsuletoPolyManifold(
+                *transmute::<*const c_void, *const c2Capsule>(A),
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+                m,
+            ),
+            _ => return,
+        },
+        C2_TYPE_C2_TYPE_POLY => match typeB {
+            C2_TYPE_C2_TYPE_CIRCLE => c2CircletoPolyManifold(
+                *transmute::<*const c_void, *const c2Circle>(B),
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+                m,
+            ),
+            C2_TYPE_C2_TYPE_AABB => c2AABBtoPolyManifold(
+                *transmute::<*const c_void, *const c2AABB>(B),
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+                m,
+            ),
+            C2_TYPE_C2_TYPE_CAPSULE => c2CapsuletoPolyManifold(
+                *transmute::<*const c_void, *const c2Capsule>(B),
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+                m,
+            ),
+            C2_TYPE_C2_TYPE_POLY => c2PolytoPolyManifold(
+                transmute::<*const c_void, *const c2Poly>(A),
+                ax,
+                transmute::<*const c_void, *const c2Poly>(B),
+                bx,
+                m,
+            ),
+            _ => return,
+        },
+
+        _ => return,
+    }
 }
+
 extern "C" {
     pub fn c2CastRay(
         A: c2Ray,
