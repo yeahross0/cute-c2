@@ -1223,7 +1223,6 @@ pub unsafe fn c2CapsuletoPolyManifold(
         }
 
         if s1 > sep {
-            sep = s1;
             index = v1;
             code = 2;
         }
@@ -1918,7 +1917,7 @@ pub unsafe fn c2GJK(
     let mut saveB: [i32; 3] = [0; 3];
     let mut save_count: i32;
     let mut d0: f32 = std::f32::MAX;
-    let mut d1: f32 = std::f32::MAX;
+    let mut d1: f32;
     let mut iter: i32 = 0;
     let mut hit: i32 = 0;
     while iter < C2_GJK_ITERS {
