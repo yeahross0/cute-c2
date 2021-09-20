@@ -9,4 +9,4 @@ crow = "0.7.1"
 
 [dependencies.c2]
 path = "../cute-c2"
-version = "0.1.0"
+version = "0.2.0"

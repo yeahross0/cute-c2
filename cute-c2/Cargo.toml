@@ -1,6 +1,6 @@
 [package]
 name = "c2"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Ross <yeahross@protonmail.com>"]
 edition = "2018"
 description = "2D Collision Detection"
@@ -10,4 +10,4 @@ readme = "../README.md"
 
 [dependencies.c2-sys]
 path = "../cute-c2-sys"
-version = "0.1.0"
+version = "0.2.0"
